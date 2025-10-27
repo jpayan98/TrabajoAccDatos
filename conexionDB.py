@@ -179,6 +179,8 @@ VALUES (?, ?, ?, ?);
     (3, 2, "2025-10-27", 1)
 ])
 
+conn.execute('''Commit''')
+
 # --- COMPROBACIONES ---
 print("\n--- PRODUCTOS ---")
 for row in conn.execute("SELECT * FROM PRODUCTOS;").fetchall():
@@ -191,3 +193,5 @@ for row in conn.execute("SELECT * FROM FACTURAS;").fetchall():
 print("\n--- TIENDAS (profit) ---")
 for row in conn.execute("SELECT * FROM TIENDA;").fetchall():
     print(row)
+
+
