@@ -1,26 +1,22 @@
-from libsql_client import create_client
-from dotenv import load_dotenv
-import os
+import libsql
+import envyte
 
-# Cargar variables del archivo .env
-load_dotenv()
-
-url = os.getenv("URL_DB")
-token = os.getenv("API_TOKEN")
+url = envyte.get("URL_DB")
+auth_token = envyte.get("API_TOKEN")
 
 # Conexión con Turso
-client = create_client(url,token)
-print("Conexión establecida con Turso:", url)
+conn = libsql.connect("aadut1", sync_url=url, auth_token=auth_token)
+conn.sync()
 
-# BORRAR TABLAS
-client.execute("DROP TABLE IF EXISTS FACTURAS;")
-client.execute("DROP TABLE IF EXISTS PRODUCTOAS;")
-client.execute("DROP TABLE IF EXISTS TRABAJADORES;")
-client.execute("DROP TABLE IF EXISTS CLIENTES;")
-client.execute("DROP TABLE IF EXISTS TIENDA;")
+# --- BORRAR TABLAS ---
+conn.execute("DROP TABLE IF EXISTS FACTURAS;")
+conn.execute("DROP TABLE IF EXISTS PRODUCTOAS;")
+conn.execute("DROP TABLE IF EXISTS TRABAJADORES;")
+conn.execute("DROP TABLE IF EXISTS CLIENTES;")
+conn.execute("DROP TABLE IF EXISTS TIENDA;")
 
-# CREAR TABLAS
-client.execute('''
+# --- CREAR TABLAS ---
+conn.execute('''
 CREATE TABLE TIENDA (
     IDTIENDA INTEGER PRIMARY KEY AUTOINCREMENT,
     NOMBRE VARCHAR(100) NOT NULL,
@@ -30,7 +26,7 @@ CREATE TABLE TIENDA (
 );
 ''')
 
-client.execute('''
+conn.execute('''
 CREATE TABLE TRABAJADORES (
     IDTRABAJADOR INTEGER PRIMARY KEY AUTOINCREMENT,
     IDTIENDA INTEGER NOT NULL,
@@ -47,7 +43,7 @@ CREATE TABLE TRABAJADORES (
 );
 ''')
 
-client.execute('''
+conn.execute('''
 CREATE TABLE PRODUCTOAS (
     IDPRODUCTO INTEGER PRIMARY KEY AUTOINCREMENT,
     IDTIENDA INTEGER NOT NULL,
@@ -59,7 +55,7 @@ CREATE TABLE PRODUCTOAS (
 );
 ''')
 
-client.execute('''
+conn.execute('''
 CREATE TABLE CLIENTES (
     IDCLIENTE INTEGER PRIMARY KEY AUTOINCREMENT,
     NOMBRE VARCHAR(20) NOT NULL,
@@ -73,7 +69,7 @@ CREATE TABLE CLIENTES (
 );
 ''')
 
-client.execute('''
+conn.execute('''
 CREATE TABLE FACTURAS (
     IDFACTURA INTEGER PRIMARY KEY AUTOINCREMENT,
     IDPRODUCTO INTEGER NOT NULL,
@@ -89,9 +85,9 @@ CREATE TABLE FACTURAS (
 );
 ''')
 
-# TRIGGERS
-client.execute("DROP TRIGGER IF EXISTS trg_facturas_check_stock;")
-client.execute('''
+# --- TRIGGERS ---
+conn.execute("DROP TRIGGER IF EXISTS trg_facturas_check_stock;")
+conn.execute('''
 CREATE TRIGGER trg_facturas_check_stock
 BEFORE INSERT ON FACTURAS
 FOR EACH ROW
@@ -106,8 +102,8 @@ BEGIN
 END;
 ''')
 
-client.execute("DROP TRIGGER IF EXISTS trg_facturas_after_insert;")
-client.execute('''
+conn.execute("DROP TRIGGER IF EXISTS trg_facturas_after_insert;")
+conn.execute('''
 CREATE TRIGGER trg_facturas_after_insert
 AFTER INSERT ON FACTURAS
 FOR EACH ROW
@@ -125,8 +121,8 @@ BEGIN
 END;
 ''')
 
-client.execute("DROP TRIGGER IF EXISTS trg_update_profit_after_factura;")
-client.execute('''
+conn.execute("DROP TRIGGER IF EXISTS trg_update_profit_after_factura;")
+conn.execute('''
 CREATE TRIGGER trg_update_profit_after_factura
 AFTER INSERT ON FACTURAS
 FOR EACH ROW
@@ -143,14 +139,14 @@ BEGIN
 END;
 ''')
 
-# INSERTS
-client.execute_many(
+# --- INSERTS ---
+conn.executemany(
     "INSERT INTO TIENDA (NOMBRE, DIRECCION, COD_POSTAL) VALUES (?, ?, ?);",
     [("Tienda Central", "Calle Mayor 10", 28001),
      ("Sucursal Norte", "Av. de la Paz 45", 28941)]
 )
 
-client.execute_many('''
+conn.executemany('''
 INSERT INTO TRABAJADORES (IDTIENDA, NOMBRE, APE1, APE2, DNI, RESIDENCIA, TELEFONO, CONTACTO, HORARIO, SUELDO)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 ''', [
@@ -158,7 +154,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     (2, "Luis", "Martín", "Pérez", "87654321B", "Alcalá", "600333444", "luis@tienda.com", "PARCIAL", 1200.75),
 ])
 
-client.execute_many('''
+conn.executemany('''
 INSERT INTO PRODUCTOAS (IDTIENDA, NOMBRE, DESCRIPCION, PRECIO, STOCK)
 VALUES (?, ?, ?, ?, ?);
 ''', [
@@ -167,7 +163,7 @@ VALUES (?, ?, ?, ?, ?);
     (2, "Zapatillas", "Zapatillas deportivas blancas", 45.50, 20)
 ])
 
-client.execute_many('''
+conn.executemany('''
 INSERT INTO CLIENTES (NOMBRE, APE1, APE2, RESIDENCIA, TELEFONO, EMAIL, GASTO_TOTAL, VIP)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 ''', [
@@ -175,7 +171,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?);
     ("Laura", "Gómez", "Pérez", "Toledo", "622334455", "laura@gmail.com", 0, "SI")
 ])
 
-client.execute_many('''
+conn.executemany('''
 INSERT INTO FACTURAS (IDPRODUCTO, IDCLIENTE, FECHACOMPRA, CANTIDAD)
 VALUES (?, ?, ?, ?);
 ''', [
@@ -183,16 +179,15 @@ VALUES (?, ?, ?, ?);
     (3, 2, "2025-10-27", 1)
 ])
 
-# COMPROBACIONES
+# --- COMPROBACIONES ---
 print("\n--- PRODUCTOS ---")
-for row in client.execute("SELECT * FROM PRODUCTOAS;").rows:
+for row in conn.execute("SELECT * FROM PRODUCTOAS;").fetchall():
     print(row)
 
 print("\n--- FACTURAS ---")
-for row in client.execute("SELECT * FROM FACTURAS;").rows:
+for row in conn.execute("SELECT * FROM FACTURAS;").fetchall():
     print(row)
 
 print("\n--- TIENDAS (profit) ---")
-for row in client.execute("SELECT * FROM TIENDA;").rows:
+for row in conn.execute("SELECT * FROM TIENDA;").fetchall():
     print(row)
-
