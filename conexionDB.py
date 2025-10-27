@@ -1,24 +1,28 @@
 import libsql
 import envyte
 
-url = envyte.get("URL_DB")
-auth_token = envyte.get("API_TOKEN")
+def conBD():
+ 
+    url = envyte.get("URL_DB")
+    auth_token = envyte.get("API_TOKEN")
 
-# Conexión con Turso
-conn = libsql.connect("aadut1", sync_url=url, auth_token=auth_token)
-conn.sync()
+    # Conexión local con sincronización desde Turso
+    conn = libsql.connect("aadut1", sync_url=url, auth_token=auth_token)
+    conn.sync()  # sincroniza con Turso
+
+    return conn
 
 # --- BORRAR TABLAS ---
-conn.execute("PRAGMA foreign_keys = OFF;")
-conn.execute("DROP TABLE IF EXISTS FACTURAS;")
-conn.execute("DROP TABLE IF EXISTS PRODUCTOS;")
-conn.execute("DROP TABLE IF EXISTS TRABAJADORES;")
-conn.execute("DROP TABLE IF EXISTS CLIENTES;")
-conn.execute("DROP TABLE IF EXISTS TIENDA;")
-conn.execute("PRAGMA foreign_keys = ON;")
+conBD.execute("PRAGMA foreign_keys = OFF;")
+conBD.execute("DROP TABLE IF EXISTS FACTURAS;")
+conBD.execute("DROP TABLE IF EXISTS PRODUCTOS;")
+conBD.execute("DROP TABLE IF EXISTS TRABAJADORES;")
+conBD.execute("DROP TABLE IF EXISTS CLIENTES;")
+conBD.execute("DROP TABLE IF EXISTS TIENDA;")
+conBD.execute("PRAGMA foreign_keys = ON;")
 
 # --- CREAR TABLAS ---
-conn.execute('''
+conBD.execute('''
 CREATE TABLE TIENDA (
     IDTIENDA INTEGER PRIMARY KEY AUTOINCREMENT,
     NOMBRE VARCHAR(100) NOT NULL,
@@ -28,7 +32,7 @@ CREATE TABLE TIENDA (
 );
 ''')
 
-conn.execute('''
+conBD.execute('''
 CREATE TABLE TRABAJADORES (
     IDTRABAJADOR INTEGER PRIMARY KEY AUTOINCREMENT,
     IDTIENDA INTEGER NOT NULL,
@@ -45,7 +49,7 @@ CREATE TABLE TRABAJADORES (
 );
 ''')
 
-conn.execute('''
+conBD.execute('''
 CREATE TABLE PRODUCTOS (
     IDPRODUCTO INTEGER PRIMARY KEY AUTOINCREMENT,
     IDTIENDA INTEGER NOT NULL,
@@ -57,7 +61,7 @@ CREATE TABLE PRODUCTOS (
 );
 ''')
 
-conn.execute('''
+conBD.execute('''
 CREATE TABLE CLIENTES (
     IDCLIENTE INTEGER PRIMARY KEY AUTOINCREMENT,
     NOMBRE VARCHAR(20) NOT NULL,
@@ -71,7 +75,7 @@ CREATE TABLE CLIENTES (
 );
 ''')
 
-conn.execute('''
+conBD.execute('''
 CREATE TABLE FACTURAS (
     IDFACTURA INTEGER PRIMARY KEY AUTOINCREMENT,
     IDPRODUCTO INTEGER NOT NULL,
@@ -88,8 +92,8 @@ CREATE TABLE FACTURAS (
 ''')
 
 # --- TRIGGERS ---
-conn.execute("DROP TRIGGER IF EXISTS trg_facturas_check_stock;")
-conn.execute('''
+conBD.execute("DROP TRIGGER IF EXISTS trg_facturas_check_stock;")
+conBD.execute('''
 CREATE TRIGGER trg_facturas_check_stock
 BEFORE INSERT ON FACTURAS
 FOR EACH ROW
@@ -104,8 +108,8 @@ BEGIN
 END;
 ''')
 
-conn.execute("DROP TRIGGER IF EXISTS trg_facturas_after_insert;")
-conn.execute('''
+conBD.execute("DROP TRIGGER IF EXISTS trg_facturas_after_insert;")
+conBD.execute('''
 CREATE TRIGGER trg_facturas_after_insert
 AFTER INSERT ON FACTURAS
 FOR EACH ROW
@@ -123,8 +127,8 @@ BEGIN
 END;
 ''')
 
-conn.execute("DROP TRIGGER IF EXISTS trg_update_profit_after_factura;")
-conn.execute('''
+conBD.execute("DROP TRIGGER IF EXISTS trg_update_profit_after_factura;")
+conBD.execute('''
 CREATE TRIGGER trg_update_profit_after_factura
 AFTER INSERT ON FACTURAS
 FOR EACH ROW
@@ -142,13 +146,13 @@ END;
 ''')
 
 # --- INSERTS ---
-conn.executemany(
+conBD.executemany(
     "INSERT INTO TIENDA (NOMBRE, DIRECCION, COD_POSTAL) VALUES (?, ?, ?);",
     [("Tienda Central", "Calle Mayor 10", 28001),
      ("Sucursal Norte", "Av. de la Paz 45", 28941)]
 )
 
-conn.executemany('''
+conBD.executemany('''
 INSERT INTO TRABAJADORES (IDTIENDA, NOMBRE, APE1, APE2, DNI, RESIDENCIA, TELEFONO, CONTACTO, HORARIO, SUELDO)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 ''', [
@@ -156,7 +160,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     (2, "Luis", "Martín", "Pérez", "87654321B", "Alcalá", "600333444", "luis@tienda.com", "PARCIAL", 1200.75),
 ])
 
-conn.executemany('''
+conBD.executemany('''
 INSERT INTO PRODUCTOS (IDTIENDA, NOMBRE, DESCRIPCION, PRECIO, STOCK)
 VALUES (?, ?, ?, ?, ?);
 ''', [
@@ -165,7 +169,7 @@ VALUES (?, ?, ?, ?, ?);
     (2, "Zapatillas", "Zapatillas deportivas blancas", 45.50, 20)
 ])
 
-conn.executemany('''
+conBD.executemany('''
 INSERT INTO CLIENTES (NOMBRE, APE1, APE2, RESIDENCIA, TELEFONO, EMAIL, GASTO_TOTAL, VIP)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 ''', [
@@ -173,7 +177,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?);
     ("Laura", "Gómez", "Pérez", "Toledo", "622334455", "laura@gmail.com", 0, "SI")
 ])
 
-conn.executemany('''
+conBD.executemany('''
 INSERT INTO FACTURAS (IDPRODUCTO, IDCLIENTE, FECHACOMPRA, CANTIDAD)
 VALUES (?, ?, ?, ?);
 ''', [
@@ -181,20 +185,20 @@ VALUES (?, ?, ?, ?);
     (3, 2, "2025-10-27", 1)
 ])
 
-conn.execute('''Commit''')
+conBD.execute('''Commit''')
 
 
 # --- COMPROBACIONES ---
 print("\n--- PRODUCTOS ---")
-for row in conn.execute("SELECT * FROM PRODUCTOS;").fetchall():
+for row in conBD.execute("SELECT * FROM PRODUCTOS;").fetchall():
     print(row)
 
 print("\n--- FACTURAS ---")
-for row in conn.execute("SELECT * FROM FACTURAS;").fetchall():
+for row in conBD.execute("SELECT * FROM FACTURAS;").fetchall():
     print(row)
 
 print("\n--- TIENDAS (profit) ---")
-for row in conn.execute("SELECT * FROM TIENDA;").fetchall():
+for row in conBD.execute("SELECT * FROM TIENDA;").fetchall():
     print(row)
 
 

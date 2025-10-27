@@ -33,6 +33,21 @@ def insertar():
         case _:  # caso por defecto si no es 1-4
             print("Opción no válida")
 
+from conexion import conBD
+
 def CrearTienda():
-    Nombre = input("que nombre quieres ponerle")
-    
+    conn = conBD()
+
+    nombre = input("Nombre de la tienda: ")
+    direccion = input("Dirección de la tienda: ")
+    cod_postal = input("Código postal (por defecto 28941): ") or "28941"
+
+    try:
+        conn.execute(
+            "INSERT INTO TIENDA (NOMBRE, DIRECCION, COD_POSTAL) VALUES (?, ?, ?);",
+            (nombre, direccion, int(cod_postal))
+        )
+        conn.commit()
+        print(f"✅ Tienda '{nombre}' creada correctamente.\n")
+    except Exception as e:
+        print("❌ Error al crear la tienda:", e)
