@@ -6,7 +6,7 @@ with sqlite3.connect(DB_FILE) as conn:
     conn.execute("PRAGMA foreign_keys = ON;")
     cursor = conn.cursor()
 
-    # BORRAR TABLAS (orden por dependencias)
+    # BORRAR TABLAS 
     cursor.execute("DROP TABLE IF EXISTS FACTURAS;")
     cursor.execute("DROP TABLE IF EXISTS PRODUCTOAS;")
     cursor.execute("DROP TABLE IF EXISTS TRABAJADORES;")
@@ -83,9 +83,9 @@ with sqlite3.connect(DB_FILE) as conn:
     );
     ''')
 
-    # TRIGGERS (compatibles con SQLite)
+    # TRIGGERS 
 
-    # 1) BEFORE INSERT: comprueba stock y aborta si no hay suficiente
+    # 1)comprueba stock y aborta si no hay suficiente
     cursor.execute("DROP TRIGGER IF EXISTS trg_facturas_check_stock;")
     cursor.execute('''
     CREATE TRIGGER trg_facturas_check_stock
@@ -102,7 +102,7 @@ with sqlite3.connect(DB_FILE) as conn:
     END;
     ''')
 
-    # 2) AFTER INSERT: calcula PRECIO_UD, GASTO, GASTO_TOTAL y resta stock
+    # 2)calcula PRECIO_UD, GASTO, GASTO_TOTAL y resta stock
     cursor.execute("DROP TRIGGER IF EXISTS trg_facturas_after_insert;")
     cursor.execute('''
     CREATE TRIGGER trg_facturas_after_insert
@@ -124,8 +124,7 @@ with sqlite3.connect(DB_FILE) as conn:
     END;
     ''')
 
-    # 3) AFTER INSERT/UPDATE/DELETE en FACTURAS: recalcula PROFIT de la tienda afectada
-    # Nota: SQLite no soporta MERGE ni UPDATE ... FROM. Recalculamos por tienda afectada.
+    # 3)recalcula PROFIT de la tienda afectada
     cursor.execute("DROP TRIGGER IF EXISTS trg_update_profit_after_factura;")
     cursor.execute('''
     CREATE TRIGGER trg_update_profit_after_factura
@@ -144,10 +143,7 @@ with sqlite3.connect(DB_FILE) as conn:
         WHERE IDTIENDA = (SELECT IDTIENDA FROM PRODUCTOAS WHERE IDPRODUCTO = NEW.IDPRODUCTO);
     END;
     ''')
-    # Para UPDATE o DELETE en FACTURAS deberías crear triggers similares que llamen la misma subconsulta.
-    # (Por simplicidad aquí añadimos solo el AFTER INSERT; si quieres, agrego los de UPDATE y DELETE.)
-
-    # DATOS DE PRUEBA (coherentes con columnas)
+    # INSERTS DATOS
     cursor.executemany(
         "INSERT INTO TIENDA (NOMBRE, DIRECCION, COD_POSTAL) VALUES (?, ?, ?);",
         [("Tienda Central", "Calle Mayor 10", 28001),
@@ -204,6 +200,5 @@ with sqlite3.connect(DB_FILE) as conn:
     for r in cursor.execute("SELECT * FROM TIENDA;"):
         print(r)
 
-    print("\n✅ Script ejecutado correctamente.")
-
+    print("\n Script ejecutado correctamente.")
 
