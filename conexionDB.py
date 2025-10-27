@@ -9,11 +9,13 @@ conn = libsql.connect("aadut1", sync_url=url, auth_token=auth_token)
 conn.sync()
 
 # --- BORRAR TABLAS ---
+conn.execute("PRAGMA foreign_keys = OFF;")
 conn.execute("DROP TABLE IF EXISTS FACTURAS;")
 conn.execute("DROP TABLE IF EXISTS PRODUCTOS;")
 conn.execute("DROP TABLE IF EXISTS TRABAJADORES;")
 conn.execute("DROP TABLE IF EXISTS CLIENTES;")
 conn.execute("DROP TABLE IF EXISTS TIENDA;")
+conn.execute("PRAGMA foreign_keys = ON;")
 
 # --- CREAR TABLAS ---
 conn.execute('''
@@ -178,6 +180,7 @@ VALUES (?, ?, ?, ?);
     (1, 1, "2025-10-27", 2),
     (3, 2, "2025-10-27", 1)
 ])
+
 
 # --- COMPROBACIONES ---
 print("\n--- PRODUCTOS ---")
