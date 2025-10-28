@@ -146,6 +146,30 @@ BEGIN
 END;
 """)
 
+# --- TRIGGER: Actualizar profit al eliminar factura ---
+conn.execute("""
+CREATE TRIGGER trg_facturas_after_delete
+AFTER DELETE ON FACTURAS
+FOR EACH ROW
+BEGIN
+    UPDATE TIENDA
+    SET PROFIT = (
+        COALESCE((
+            SELECT SUM(f.GASTO_TOTAL)
+            FROM FACTURAS f
+            JOIN PRODUCTOS p ON f.IDPRODUCTO = p.IDPRODUCTO
+            WHERE p.IDTIENDA = TIENDA.IDTIENDA
+        ), 0)
+        - COALESCE((
+            SELECT SUM(t.SUELDO)
+            FROM TRABAJADORES t
+            WHERE t.IDTIENDA = TIENDA.IDTIENDA
+        ), 0)
+    )
+    WHERE IDTIENDA = (SELECT IDTIENDA FROM PRODUCTOS WHERE IDPRODUCTO = OLD.IDPRODUCTO);
+END;
+""")
+
 # --- TRIGGER: Actualizar profit al insertar trabajador ---
 conn.execute("""
 CREATE TRIGGER trg_trabajadores_after_insert
