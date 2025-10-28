@@ -1,7 +1,7 @@
 import libsql
 import envyte
 import sys
-
+# Agrega aquí tu URL de turso y tu token de autenticación
 url = envyte.get("URL_DB")
 auth_token = envyte.get("API_TOKEN")
 
