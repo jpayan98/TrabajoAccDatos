@@ -267,7 +267,7 @@ def menu_consultar():
         print("3. 📦 Consultar Productos")
         print("4. 👥 Consultar Clientes")
         print("5. 🧾 Consultar Facturas")
-        print("6. 🔍 Consultas personalizadas")
+        print("6. 🔍 Consulta personalizada")
         print("7. ↩️  Volver al menú principal")
         print("="*40)
         opcion = input("Elige una opción (1-7): ")
@@ -283,7 +283,7 @@ def menu_consultar():
             case "5":
                 consultar_facturas()
             case "6":
-                consultas_personalizadas()
+                consulta_personalizada()
             case "7":
                 break
             case _:
@@ -370,6 +370,99 @@ def consultar_facturas():
             print(f"ID: {fact[0]} | Fecha: {fact[3]} | Producto: {fact[9]} | Cliente: {fact[10]} | Cantidad: {fact[5]} | Total: {fact[8]}€")
     except Exception as e:
         print("❌ Error al consultar facturas:", e)
+
+def consulta_personalizada():
+    """
+    Construye y ejecuta un SELECT guiado por consola.
+    - Pide tablas 1 a 1 (ENTER vacío pasa a campos).
+    - Si hay >1 tabla, pregunta cómo unirlas (NATURAL JOIN / coma / expresión manual).
+    - Pide campos (vacío -> *) y WHERE opcional.
+    Usa la conexión global `conn`.
+    """
+    print("\n=== CONSULTA SQL INTERACTIVA ===")
+    print("Introduce los nombres de las tablas UNA a UNA. Pulsa ENTER vacío para pasar al siguiente paso.\n")
+
+    # --- Recoger tablas una a una ---
+    tablas_lista = []
+    contador = 1
+    while True:
+        entrada = input(f"Tabla #{contador} (ENTER vacío para terminar): ").strip()
+        if entrada == "":
+            break
+        tablas_lista.append(entrada)
+        contador += 1
+
+    if not tablas_lista:
+        print("❌ No se ha indicado ninguna tabla. Abortando consulta.")
+        return
+
+    # --- Si hay varias tablas, elegir método de unión ---
+    if len(tablas_lista) > 1:
+        print("\nHas introducido varias tablas:", ", ".join(tablas_lista))
+        print("Elige cómo unirlas:")
+        print("  1) NATURAL JOIN (recomendado si las tablas tienen columnas con mismo nombre)")
+        print("  2) COMA (producto cartesiano)")
+        print("  3) ESCRIBIR EXPRESIÓN JOIN manual (por ejemplo: 'PRODUCTOS p INNER JOIN FACTURAS f ON p.IDPRODUCTO=f.IDPRODUCTO')")
+        modo_union = input("Opción (1/2/3) [1]: ").strip() or "1"
+
+        if modo_union == "1":
+            tablas_expr = " NATURAL JOIN ".join(tablas_lista)
+        elif modo_union == "2":
+            tablas_expr = ", ".join(tablas_lista)
+        elif modo_union == "3":
+            tablas_expr = input("Escribe la expresión JOIN completa: ").strip()
+            if not tablas_expr:
+                print("❌ Expresión JOIN vacía. Abortando.")
+                return
+        else:
+            print("Opción inválida, usando NATURAL JOIN por defecto.")
+            tablas_expr = " NATURAL JOIN ".join(tablas_lista)
+    else:
+        tablas_expr = tablas_lista[0]
+
+    # --- Campos ---
+    campos = input("\nIngresa los nombres de los campos (formato: TABLA.CAMPO) o deja vacío para todos (*): ").strip()
+    if not campos:
+        campos = "*"
+
+    # --- WHERE ---
+    where = input("Ingresa condición WHERE (ej: PRECIO>20 AND NOMBRE LIKE '%L%') o deja vacío si no hay: ").strip()
+
+    # Construir consulta
+    sql = f"SELECT {campos} FROM {tablas_expr}"
+    if where:
+        sql += f" WHERE {where}"
+
+    print("\n📘 Consulta generada:")
+    print(sql)
+
+    # Ejecutar y mostrar resultados
+    try:
+        cursor = conn.execute(sql)
+        # Si la consulta no devuelve filas (p. ej. es DML), cursor.description será None
+        if cursor.description:
+            resultados = cursor.fetchall()
+            if resultados:
+                print("\n✅ Resultados:")
+                for fila in resultados:
+                    print(fila)
+            else:
+                print("\n⚠️ La consulta se ejecutó correctamente pero no devolvió resultados.")
+        else:
+            # Consulta de modificación o sin resultado
+            # Intentamos commit/sync dependiendo del tipo de conexión
+            try:
+                # Si la conexión tiene commit (sqlite), lo usamos; si tiene sync (libsql), lo usamos
+                if hasattr(conn, "commit"):
+                    conn.commit()
+                if hasattr(conn, "sync"):
+                    conn.sync()
+            except Exception:
+                pass
+            print("\n✅ Consulta ejecutada (sin resultados que mostrar).")
+    except Exception as e:
+        print("\n❌ Error al ejecutar la consulta:", e)
+
 
 # ==================== MENÚ ACTUALIZAR ====================
 def menu_actualizar():
