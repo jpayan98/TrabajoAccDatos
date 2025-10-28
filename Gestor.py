@@ -316,7 +316,7 @@ def consultar_trabajadores():
             return
         
         for trab in trabajadores:
-            print(f"ID: {trab[0]} | Tienda: {trab[9]} | Nombre: {trab[2]} {trab[3]} {trab[4] or ''} | DNI: {trab[5]} | Tel: {trab[7]} | Sueldo: {trab[10]}€")
+            print(f"ID: {trab[0]} | Tienda: {trab[1]} | Nombre: {trab[2]} {trab[3]} {trab[4] or ''} | DNI: {trab[5]} | Tel: {trab[7]} | Horario:{trab[9]} | Sueldo: {trab[10]}€")
     except Exception as e:
         print("❌ Error al consultar trabajadores:", e)
 
