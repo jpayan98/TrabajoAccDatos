@@ -40,7 +40,7 @@ CREATE TABLE TRABAJADORES (
     CONTACTO VARCHAR(100),
     HORARIO VARCHAR(20) CHECK(HORARIO IN ('COMPLETO','PARCIAL')),
     SUELDO REAL,
-    FOREIGN KEY (IDTIENDA) REFERENCES TIENDA(IDTIENDA)
+    FOREIGN KEY (IDTIENDA) REFERENCES TIENDA(IDTIENDA) ON DELETE CASCADE
 );
 ''')
 
@@ -52,7 +52,7 @@ CREATE TABLE PRODUCTOS (
     DESCRIPCION VARCHAR(200),
     PRECIO REAL NOT NULL,
     STOCK INTEGER NOT NULL DEFAULT 0,
-    FOREIGN KEY (IDTIENDA) REFERENCES TIENDA(IDTIENDA)
+    FOREIGN KEY (IDTIENDA) REFERENCES TIENDA(IDTIENDA) ON DELETE CASCADE
 );
 ''')
 
@@ -81,14 +81,19 @@ CREATE TABLE FACTURAS (
     GASTO REAL,
     IVA INTEGER DEFAULT 21 NOT NULL,
     GASTO_TOTAL REAL,
-    FOREIGN KEY (IDPRODUCTO) REFERENCES PRODUCTOS(IDPRODUCTO),
-    FOREIGN KEY (IDCLIENTE) REFERENCES CLIENTES(IDCLIENTE)
+    FOREIGN KEY (IDPRODUCTO) REFERENCES PRODUCTOS(IDPRODUCTO) ON DELETE CASCADE,
+    FOREIGN KEY (IDCLIENTE) REFERENCES CLIENTES(IDCLIENTE) ON DELETE CASCADE
 );
 ''')
-
 # --- TRIGGERS ---
+# --- ELIMINAR TRIGGERS EXISTENTES ---
 conn.execute("DROP TRIGGER IF EXISTS trg_facturas_check_stock;")
-conn.execute('''
+conn.execute("DROP TRIGGER IF EXISTS trg_facturas_after_insert;")
+conn.execute("DROP TRIGGER IF EXISTS trg_update_profit_after_factura;")
+conn.execute("DROP TRIGGER IF EXISTS trg_trabajadores_after_insert;")
+
+# --- TRIGGER: Comprobar stock antes de insertar factura ---
+conn.execute("""
 CREATE TRIGGER trg_facturas_check_stock
 BEFORE INSERT ON FACTURAS
 FOR EACH ROW
@@ -101,14 +106,15 @@ BEGIN
                 THEN RAISE(ABORT, 'No hay suficiente stock del producto.')
         END;
 END;
-''')
+""")
 
-conn.execute("DROP TRIGGER IF EXISTS trg_facturas_after_insert;")
-conn.execute('''
+# --- TRIGGER: Actualizar factura, stock y profit después de insertar factura ---
+conn.execute("""
 CREATE TRIGGER trg_facturas_after_insert
 AFTER INSERT ON FACTURAS
 FOR EACH ROW
 BEGIN
+    -- 1️⃣ Calcular precio y totales de la factura
     UPDATE FACTURAS
     SET
         PRECIO_UD = (SELECT PRECIO FROM PRODUCTOS WHERE IDPRODUCTO = NEW.IDPRODUCTO),
@@ -116,29 +122,54 @@ BEGIN
         GASTO_TOTAL = NEW.CANTIDAD * (SELECT PRECIO FROM PRODUCTOS WHERE IDPRODUCTO = NEW.IDPRODUCTO) * (1.0 + NEW.IVA / 100.0)
     WHERE IDFACTURA = NEW.IDFACTURA;
 
+    -- 2️⃣ Actualizar stock del producto
     UPDATE PRODUCTOS
     SET STOCK = STOCK - NEW.CANTIDAD
     WHERE IDPRODUCTO = NEW.IDPRODUCTO;
-END;
-''')
 
-conn.execute("DROP TRIGGER IF EXISTS trg_update_profit_after_factura;")
-conn.execute('''
-CREATE TRIGGER trg_update_profit_after_factura
-AFTER INSERT ON FACTURAS
+    -- 3️⃣ Recalcular profit de la tienda del producto
+    UPDATE TIENDA
+    SET PROFIT = (
+        COALESCE((
+            SELECT SUM(f.GASTO_TOTAL)
+            FROM FACTURAS f
+            JOIN PRODUCTOS p ON f.IDPRODUCTO = p.IDPRODUCTO
+            WHERE p.IDTIENDA = TIENDA.IDTIENDA
+        ), 0)
+        - COALESCE((
+            SELECT SUM(t.SUELDO)
+            FROM TRABAJADORES t
+            WHERE t.IDTIENDA = TIENDA.IDTIENDA
+        ), 0)
+    )
+    WHERE IDTIENDA = (SELECT IDTIENDA FROM PRODUCTOS WHERE IDPRODUCTO = NEW.IDPRODUCTO);
+END;
+""")
+
+# --- TRIGGER: Actualizar profit al insertar trabajador ---
+conn.execute("""
+CREATE TRIGGER trg_trabajadores_after_insert
+AFTER INSERT ON TRABAJADORES
 FOR EACH ROW
 BEGIN
     UPDATE TIENDA
     SET PROFIT = (
-        SELECT
-            COALESCE(SUM(f.GASTO), 0) - COALESCE((SELECT SUM(SUELDO) FROM TRABAJADORES tr WHERE tr.IDTIENDA = p.IDTIENDA), 0)
-        FROM PRODUCTOS p
-        LEFT JOIN FACTURAS f ON f.IDPRODUCTO = p.IDPRODUCTO
-        WHERE p.IDTIENDA = TIENDA.IDTIENDA
+        COALESCE((
+            SELECT SUM(f.GASTO_TOTAL)
+            FROM FACTURAS f
+            JOIN PRODUCTOS p ON f.IDPRODUCTO = p.IDPRODUCTO
+            WHERE p.IDTIENDA = TIENDA.IDTIENDA
+        ), 0)
+        - COALESCE((
+            SELECT SUM(t.SUELDO)
+            FROM TRABAJADORES t
+            WHERE t.IDTIENDA = TIENDA.IDTIENDA
+        ), 0)
     )
-    WHERE IDTIENDA = (SELECT IDTIENDA FROM PRODUCTOS WHERE IDPRODUCTO = NEW.IDPRODUCTO);
+    WHERE IDTIENDA = NEW.IDTIENDA;
 END;
-''')
+""")
+
 
 # --- INSERTS ---
 conn.executemany(
